@@ -1,0 +1,38 @@
+version: '3.8'
+services:
+  api:
+    build: .
+    container_name: gym-api
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "4000:4000"
+    depends_on:
+      - mongo
+  mongo:
+    image: mongo:6
+    container_name: gym-mongo
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_DATABASE=gym_management
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+  mongo-express:
+    image: mongo-express:1
+    container_name: gym-mongo-express
+    restart: unless-stopped
+    environment:
+      - ME_CONFIG_MONGODB_SERVER=mongo
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_BASICAUTH=false
+    ports:
+      - "8081:8081"
+    depends_on:
+      - mongo
+
+volumes:
+  mongo-data:
+
+
