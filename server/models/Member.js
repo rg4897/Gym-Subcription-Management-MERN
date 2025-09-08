@@ -14,8 +14,6 @@ const memberSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-memberSchema.index({ phone: 1 }, { unique: true });
-
 export default mongoose.model('Member', memberSchema);
 
 

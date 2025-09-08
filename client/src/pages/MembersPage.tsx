@@ -34,6 +34,136 @@ export default function MembersPage() {
   const [isPayOpen, setIsPayOpen] = useState(false);
   const [payFor, setPayFor] = useState<Member | null>(null);
   const [receivedBy, setReceivedBy] = useState('');
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  useEffect(() => {
+    if (isSuccessOpen) {
+      setShowConfetti(true);
+    }
+  }, [isSuccessOpen]);
+
+  function ConfettiOverlay({ onDone }: { onDone: () => void }) {
+    useEffect(() => {
+      const canvas = document.createElement('canvas');
+      canvas.style.position = 'fixed';
+      canvas.style.top = '0';
+      canvas.style.left = '0';
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
+      canvas.style.pointerEvents = 'none';
+      canvas.style.zIndex = '9999';
+      document.body.appendChild(canvas);
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return () => {};
+
+      let width = window.innerWidth;
+      let height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
+
+      const handleResize = () => {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+      };
+      window.addEventListener('resize', handleResize);
+
+      const colors = ['#ff6b6b', '#f7b801', '#6bcB77', '#4d96ff', '#845EC2'];
+      const gravity = 0.25;
+      const drag = 0.005;
+      const particles: { x: number; y: number; vx: number; vy: number; size: number; color: string; rotation: number; vr: number; shape: number; life: number; }[] = [];
+
+      const spawn = (count: number) => {
+        for (let i = 0; i < count; i++) {
+          const x = Math.random() * width;
+          const y = -10 - Math.random() * 40; // from top
+          const speed = 3 + Math.random() * 3;
+          const angle = (Math.PI / 2) * (0.6 + Math.random() * 0.8); // mostly downward
+          const vx = Math.cos(angle) * (Math.random() < 0.5 ? -1 : 1) * speed * 0.5;
+          const vy = Math.sin(angle) * speed;
+          particles.push({
+            x,
+            y,
+            vx,
+            vy,
+            size: 6 + Math.random() * 6,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            rotation: Math.random() * Math.PI,
+            vr: (Math.random() - 0.5) * 0.2,
+            shape: Math.floor(Math.random() * 2),
+            life: 0,
+          });
+        }
+      };
+
+      let start: number | null = null;
+      let raf = 0;
+
+      const animate = (ts: number) => {
+        if (start === null) start = ts;
+        const elapsed = ts - start;
+
+        ctx.clearRect(0, 0, width, height);
+
+        // spawn more in first 800ms
+        if (elapsed < 800) {
+          spawn(40);
+        }
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.vy += gravity;
+          p.vx *= 1 - drag;
+          p.vy *= 1 - drag;
+          p.x += p.vx;
+          p.y += p.vy;
+          p.rotation += p.vr;
+          p.life += 16;
+
+          // draw
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rotation);
+          ctx.fillStyle = p.color;
+          if (p.shape === 0) {
+            ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+          } else {
+            ctx.beginPath();
+            ctx.ellipse(0, 0, p.size * 0.6, p.size * 0.35, 0, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+
+          if (p.y - p.size > height + 50) {
+            particles.splice(i, 1);
+          }
+        }
+
+        if (elapsed < 1800 || particles.length > 0) {
+          raf = requestAnimationFrame(animate);
+        } else {
+          cancelAnimationFrame(raf);
+          document.body.removeChild(canvas);
+          window.removeEventListener('resize', handleResize);
+          onDone();
+        }
+      };
+
+      raf = requestAnimationFrame(animate);
+
+      return () => {
+        cancelAnimationFrame(raf);
+        if (canvas.parentNode) document.body.removeChild(canvas);
+        window.removeEventListener('resize', handleResize);
+      };
+    }, [onDone]);
+
+    return null;
+  }
 
   async function loadMembers() {
     try {
@@ -41,7 +171,7 @@ export default function MembersPage() {
       const mapped: Member[] = (data.members || []).map((m: any) => {
         const fullName = [m.firstName, m.lastName].filter(Boolean).join(' ').trim() || m.name || 'Member';
         const joinDate = m.joinedAt ? new Date(m.joinedAt).toISOString().split('T')[0] : '';
-        const lastPayment = m.subscription?.startDate ? new Date(m.subscription.startDate).toISOString().split('T')[0] : '';
+        const lastPayment = m.lastPayment ? new Date(m.lastPayment).toISOString().split('T')[0] : (m.subscription?.startDate ? new Date(m.subscription.startDate).toISOString().split('T')[0] : '');
         const expiryDate = m.subscription?.endDate ? new Date(m.subscription.endDate).toISOString().split('T')[0] : '';
         const monthlyFee = m.subscription?.price || 0;
         const status = expiryDate ? (new Date(expiryDate) < new Date() ? 'expired' : 'active') : 'active';
@@ -54,7 +184,7 @@ export default function MembersPage() {
           expiryDate,
           monthlyFee,
           status,
-          pendingAmount: 0,
+          pendingAmount: m.pendingAmount ?? 0,
         } as Member;
       });
       setMembers(mapped);
@@ -194,7 +324,17 @@ export default function MembersPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">                    
                     {true && (
                       <button
-                        onClick={() => { setPayFor(member); setIsPayOpen(true); setReceivedBy(''); }}
+                        onClick={() => {
+                          if (member.pendingAmount <= 0) {
+                            setIsSuccessOpen(true);
+                            return;
+                          }
+                          setPayFor(member);
+                          const defaultAmount = member.pendingAmount > 0 ? member.pendingAmount : member.monthlyFee;
+                          setPaymentAmount(String(defaultAmount || ''));
+                          setIsPayOpen(true);
+                          setReceivedBy('');
+                        }}
                         className="text-purple-600 hover:text-purple-900"
                         title="Mark Payment Received"
                       >
@@ -317,7 +457,7 @@ export default function MembersPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isPayOpen} onOpenChange={setIsPayOpen}>
+      <Dialog open={isPayOpen} onOpenChange={(open) => { setIsPayOpen(open); if (!open) { setPayFor(null); setPaymentAmount(''); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Process Payment</DialogTitle>
@@ -328,7 +468,14 @@ export default function MembersPage() {
           <div className="space-y-4">
             <div className="bg-gray-50 p-3 rounded">
               <div className="text-sm text-gray-700">Amount</div>
-              <div className="text-xl font-semibold">₹{payFor ? (payFor.pendingAmount > 0 ? payFor.pendingAmount : payFor.monthlyFee) : 0}</div>
+              <input
+                type="number"
+                min={0}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent mt-2"
+                placeholder="Enter amount"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Received By</label>
@@ -346,13 +493,19 @@ export default function MembersPage() {
             <button
               onClick={async () => {
                 if (!payFor) return;
-                const amount = payFor.pendingAmount > 0 ? payFor.pendingAmount : payFor.monthlyFee;
+                const parsed = parseInt(paymentAmount || '0', 10);
+                const maxAmount = payFor.pendingAmount > 0 ? payFor.pendingAmount : payFor.monthlyFee;
+                const amount = isNaN(parsed) ? 0 : Math.min(Math.max(parsed, 0), maxAmount);
+                if (amount <= 0) { alert('Please enter a valid amount'); return; }
                 try {
-                  await apiPost('/payments', { memberId: payFor.id, amount, method: 'cash', status: 'success', notes: receivedBy });
-                  await apiPost(`/members/${payFor.id}/subscription`, { planName: 'Monthly', price: amount, durationDays: 30, startDate: new Date().toISOString() });
+                  const resp = await apiPost('/payments', { memberId: payFor.id, amount, method: 'cash', status: 'success', notes: receivedBy });
                   setIsPayOpen(false);
                   setPayFor(null);
+                  setPaymentAmount('');
                   await loadMembers();
+                  if (resp.fullyPaid || maxAmount - amount === 0) {
+                    setIsSuccessOpen(true);
+                  }
                 } catch { alert('Failed to process payment'); }
               }}
               className="px-4 py-2 rounded-md bg-green-600 text-white hover:bg-green-700"
@@ -362,6 +515,24 @@ export default function MembersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={isSuccessOpen} onOpenChange={setIsSuccessOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><CheckCircle className="w-5 h-5 text-green-600" /> Payment Successful</DialogTitle>
+            <DialogDescription>
+              Payment has been completed successfully.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button onClick={() => setIsSuccessOpen(false)} className="px-4 py-2 rounded-md bg-green-600 text-white hover:bg-green-700">OK</button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {showConfetti && (
+        <ConfettiOverlay onDone={() => setShowConfetti(false)} />
+      )}
     </div>
   );
 }
