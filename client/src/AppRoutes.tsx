@@ -4,6 +4,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import MembersPage from './pages/MembersPage';
+import PaymentsPage from './pages/PaymentsPage';
 import AppLayout from './components/AppLayout';
 
 function ProtectedRoute({ children }: { children: React.ReactElement }) {
@@ -30,6 +31,14 @@ export default function AppRoutes() {
           element={
             <ProtectedRoute>
               <MembersPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/payments"
+          element={
+            <ProtectedRoute>
+              <PaymentsPage />
             </ProtectedRoute>
           }
         />
