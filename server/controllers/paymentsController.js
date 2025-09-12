@@ -13,10 +13,10 @@ export const listPayments = async (req, res, next) => {
 
 export const createPayment = async (req, res, next) => {
   try {
-    const { memberId, amount, method, status, notes } = req.body;
+    const { memberId, amount, method, status, notes, receivedByRole } = req.body;
     const member = await Member.findById(memberId);
     if (!member) return res.status(404).json({ message: 'Member not found' });
-    const payment = await Payment.create({ member: memberId, amount, method, status, notes });
+    const payment = await Payment.create({ member: memberId, amount, method, status, notes, receivedByRole });
 
     // Determine if fully paid for current cycle only, without mutating subscription here
     let fullyPaid = false;

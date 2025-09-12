@@ -92,7 +92,27 @@ export const deleteMember = async (req, res, next) => {
 
 export const setSubscription = async (req, res, next) => {
   try {
-    const { planName, price, durationDays, startDate } = req.body;
+    let { planName, price, durationDays, startDate, planType } = req.body;
+    // Allow client to send either planName or planType. If durationDays not provided, infer from plan.
+    const planMap = {
+      'Monthly': 30,
+      'Quarterly': 90,
+      'Half-Yearly': 180,
+      'Yearly': 365,
+    };
+    // Normalize
+    if (!planName && planType) {
+      planName = planType;
+    }
+    if (!durationDays && planName && planMap[planName]) {
+      durationDays = planMap[planName];
+    }
+    if (!planName) {
+      planName = 'Monthly';
+    }
+    if (!durationDays) {
+      durationDays = planMap[planName] || 30;
+    }
     const memberId = req.params.id;
     const start = startDate ? new Date(startDate) : new Date();
     const end = new Date(start);

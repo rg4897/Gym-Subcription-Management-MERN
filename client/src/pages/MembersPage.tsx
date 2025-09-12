@@ -25,7 +25,8 @@ export default function MembersPage() {
     name: '',
     phone: '',
     monthlyFee: '',
-    joinDate: new Date().toISOString().split('T')[0]
+    joinDate: new Date().toISOString().split('T')[0],
+    planType: 'Monthly'
   });
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -33,7 +34,8 @@ export default function MembersPage() {
   const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
   const [isPayOpen, setIsPayOpen] = useState(false);
   const [payFor, setPayFor] = useState<Member | null>(null);
-  const [receivedBy, setReceivedBy] = useState('');
+  const [receivedByRole, setReceivedByRole] = useState('Admin');
+  const [receivedByOther, setReceivedByOther] = useState('');
   const [paymentAmount, setPaymentAmount] = useState('');
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
@@ -202,12 +204,20 @@ export default function MembersPage() {
     try {
       const [firstName, ...rest] = memberForm.name.trim().split(' ');
       const lastName = rest.join(' ');
+      const planDurations: Record<string, number> = {
+        'Monthly': 30,
+        'Quarterly': 90,
+        'Half-Yearly': 180,
+        'Yearly': 365,
+      };
+      const selectedPlan = (memberForm as any).planType || 'Monthly';
+      const durationDays = planDurations[selectedPlan] ?? 30;
       if (editingMember) {
         await apiPut(`/members/${editingMember.id}`, { firstName, lastName, phone: memberForm.phone });
         await apiPost(`/members/${editingMember.id}/subscription`, {
-          planName: 'Monthly',
+          planName: selectedPlan,
           price: parseInt(memberForm.monthlyFee),
-          durationDays: 30,
+          durationDays,
           startDate: memberForm.joinDate,
         });
       } else {
@@ -216,16 +226,16 @@ export default function MembersPage() {
         if (memberId) {
           const startDate = memberForm.joinDate;
           await apiPost(`/members/${memberId}/subscription`, {
-            planName: 'Monthly',
+            planName: selectedPlan,
             price: parseInt(memberForm.monthlyFee),
-            durationDays: 30,
+            durationDays,
             startDate,
           });
         }
       }
       await loadMembers();
       setEditingMember(null);
-      setMemberForm({ name: '', phone: '', monthlyFee: '', joinDate: new Date().toISOString().split('T')[0] });
+      setMemberForm({ name: '', phone: '', monthlyFee: '', joinDate: new Date().toISOString().split('T')[0], planType: 'Monthly' });
       setIsModalOpen(false);
     } catch (e) {
       alert('Failed to save member');
@@ -260,7 +270,7 @@ export default function MembersPage() {
         <button
           onClick={() => {
             setEditingMember(null);
-            setMemberForm({ name: '', phone: '', monthlyFee: '', joinDate: new Date().toISOString().split('T')[0] });
+            setMemberForm({ name: '', phone: '', monthlyFee: '', joinDate: new Date().toISOString().split('T')[0], planType: 'Monthly' });
             setIsModalOpen(true);
           }}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200 flex items-center space-x-2"
@@ -333,7 +343,8 @@ export default function MembersPage() {
                           const defaultAmount = member.pendingAmount > 0 ? member.pendingAmount : member.monthlyFee;
                           setPaymentAmount(String(defaultAmount || ''));
                           setIsPayOpen(true);
-                          setReceivedBy('');
+                          setReceivedByRole('Admin');
+                          setReceivedByOther('');
                         }}
                         className="text-purple-600 hover:text-purple-900"
                         title="Mark Payment Received"
@@ -348,7 +359,8 @@ export default function MembersPage() {
                           name: member.name,
                           phone: member.phone,
                           monthlyFee: String(member.monthlyFee || ''),
-                          joinDate: member.joinDate || new Date().toISOString().split('T')[0]
+                          joinDate: member.joinDate || new Date().toISOString().split('T')[0],
+                          planType: 'Monthly'
                         });
                         setIsModalOpen(true);
                       }}
@@ -406,7 +418,20 @@ export default function MembersPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Monthly Fee (₹)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Plan Type</label>
+              <select
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={memberForm.planType}
+                onChange={(e) => setMemberForm({ ...memberForm, planType: e.target.value })}
+              >
+                <option value="Monthly">Monthly</option>
+                <option value="Quarterly">Quarterly</option>
+                <option value="Half-Yearly">Half-Yearly</option>
+                <option value="Yearly">Yearly</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Subscription Fee (₹)</label>
               <input
                 type="number"
                 className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -479,14 +504,28 @@ export default function MembersPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Received By</label>
-              <input
-                type="text"
+              <select
                 className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Admin name or note"
-                value={receivedBy}
-                onChange={(e) => setReceivedBy(e.target.value)}
-              />
+                value={receivedByRole}
+                onChange={(e) => setReceivedByRole(e.target.value)}
+              >
+                <option value="Admin">Admin</option>
+                <option value="Trainer">Trainer</option>
+                <option value="Others">Others</option>
+              </select>
             </div>
+            {receivedByRole === 'Others' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Specify (optional)</label>
+                <input
+                  type="text"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Name or note"
+                  value={receivedByOther}
+                  onChange={(e) => setReceivedByOther(e.target.value)}
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <button onClick={() => setIsPayOpen(false)} className="px-4 py-2 rounded-md bg-gray-200 text-gray-800 hover:bg-gray-300">Cancel</button>
@@ -498,10 +537,12 @@ export default function MembersPage() {
                 const amount = isNaN(parsed) ? 0 : Math.min(Math.max(parsed, 0), maxAmount);
                 if (amount <= 0) { alert('Please enter a valid amount'); return; }
                 try {
-                  const resp = await apiPost('/payments', { memberId: payFor.id, amount, method: 'cash', status: 'success', notes: receivedBy });
+                  const resp = await apiPost('/payments', { memberId: payFor.id, amount, method: 'cash', status: 'success', receivedByRole, notes: receivedByRole === 'Others' ? receivedByOther : '' });
                   setIsPayOpen(false);
                   setPayFor(null);
                   setPaymentAmount('');
+                  setReceivedByRole('Admin');
+                  setReceivedByOther('');
                   await loadMembers();
                   if (resp.fullyPaid || maxAmount - amount === 0) {
                     setIsSuccessOpen(true);
