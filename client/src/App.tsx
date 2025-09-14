@@ -1,8 +1,11 @@
 
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { User, IndianRupee, MessageSquare, Shield, Plus, Edit, Trash2, Search, CheckCircle, AlertTriangle } from 'lucide-react';
 import { apiGet, apiPost, apiPut, apiDelete } from './lib/api';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
 
 // Define types for Member, Notification, and PaymentRecord
 type Member = {
@@ -712,12 +715,21 @@ const GymSubscriptionApp = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Join Date</label>
-                <input
-                  type="date"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  value={memberForm.joinDate}
-                  onChange={(e) => setMemberForm({...memberForm, joinDate: e.target.value})}
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className="w-full text-left border border-gray-300 rounded-lg px-4 py-3 hover:bg-gray-50">
+                      {memberForm.joinDate ? format(new Date(memberForm.joinDate), 'yyyy-MM-dd') : 'Pick a date'}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="p-0">
+                    <Calendar
+                      mode="single"
+                      selected={memberForm.joinDate ? new Date(memberForm.joinDate) : undefined}
+                      onSelect={(d) => d && setMemberForm({...memberForm, joinDate: format(d, 'yyyy-MM-dd')})}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
 

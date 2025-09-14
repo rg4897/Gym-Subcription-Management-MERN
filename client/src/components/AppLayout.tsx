@@ -44,7 +44,7 @@ export default function AppLayout() {
             </div>
             <button
               onClick={() => setIsLogoutOpen(true)}
-              className="text-gray-700 font-medium px-3 py-2 rounded-md transition-colors flex items-center space-x-2 hover:bg-red-100 active:bg-gray-200"
+              className="bg-red-600 text-white  font-medium px-3 py-2 rounded-md transition-colors flex items-center space-x-2 hover:bg-red-700 active:bg-gray-200"
               title="Logout"
             >
               <span>Logout</span>

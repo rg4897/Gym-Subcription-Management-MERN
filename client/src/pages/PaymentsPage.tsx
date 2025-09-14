@@ -1,6 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { apiGet } from '../lib/api';
 import { Download, Search } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
 
 type Payment = {
   id: string;
@@ -105,18 +108,36 @@ export default function PaymentsPage() {
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-left">
+                {startDate ? format(new Date(startDate), 'yyyy-MM-dd') : 'Start Date'}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="p-0">
+              <Calendar
+                mode="single"
+                selected={startDate ? new Date(startDate) : undefined}
+                onSelect={(d) => d && setStartDate(format(d, 'yyyy-MM-dd'))}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-left">
+                {endDate ? format(new Date(endDate), 'yyyy-MM-dd') : 'End Date'}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="p-0">
+              <Calendar
+                mode="single"
+                selected={endDate ? new Date(endDate) : undefined}
+                onSelect={(d) => d && setEndDate(format(d, 'yyyy-MM-dd'))}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 

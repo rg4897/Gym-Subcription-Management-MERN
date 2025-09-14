@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plus, Search, Edit, MessageSquare, CheckCircle, Trash2 } from 'lucide-react';
 import { apiDelete, apiGet, apiPost, apiPut } from '../lib/api';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -39,6 +39,12 @@ export default function MembersPage() {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [filters, setFilters] = useState({
+    status: 'all',
+    dateFrom: '',
+    dateTo: '',
+    feeType: 'all'
+  });
 
   useEffect(() => {
     if (isSuccessOpen) {
@@ -254,11 +260,46 @@ export default function MembersPage() {
   }
 
   const filteredMembers = useMemo(() => {
-    return members.filter(member =>
-      member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      member.phone.includes(searchTerm)
-    );
-  }, [members, searchTerm]);
+    return members.filter(member => {
+      // Search filter
+      const matchesSearch = member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        member.phone.includes(searchTerm);
+      
+      // Status filter
+      const matchesStatus = filters.status === 'all' || 
+        (filters.status === 'active' && member.status === 'active') ||
+        (filters.status === 'expired' && member.status === 'expired') ||
+        (filters.status === 'pending' && member.pendingAmount > 0);
+      
+      // Date filter
+      let matchesDate = true;
+      if (filters.dateFrom) {
+        const memberJoinDate = new Date(member.joinDate);
+        const fromDate = new Date(filters.dateFrom);
+        matchesDate = matchesDate && memberJoinDate >= fromDate;
+      }
+      if (filters.dateTo) {
+        const memberJoinDate = new Date(member.joinDate);
+        const toDate = new Date(filters.dateTo);
+        matchesDate = matchesDate && memberJoinDate <= toDate;
+      }
+      
+      // Fee type filter (based on monthly fee amount - this is a simplified approach)
+      let matchesFeeType = true;
+      if (filters.feeType !== 'all') {
+        const fee = member.monthlyFee;
+        if (filters.feeType === 'monthly') {
+          matchesFeeType = fee <= 2000; // Assuming monthly fees are typically lower
+        } else if (filters.feeType === 'quarterly') {
+          matchesFeeType = fee > 2000 && fee <= 5000; // Assuming quarterly fees are mid-range
+        } else if (filters.feeType === 'yearly') {
+          matchesFeeType = fee > 5000; // Assuming yearly fees are higher
+        }
+      }
+      
+      return matchesSearch && matchesStatus && matchesDate && matchesFeeType;
+    });
+  }, [members, searchTerm, filters]);
 
   return (
     <div className="max-w-7xl mx-auto p-6">
@@ -281,15 +322,87 @@ export default function MembersPage() {
       </div>
 
       <div className="mb-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search members by name or phone..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="flex flex-col lg:flex-row gap-4">
+          {/* Search Input */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search members by name or phone..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          
+          {/* Filters */}
+          <div className="flex flex-wrap gap-3">
+            {/* Status Filter */}
+            <select
+              value={filters.status}
+              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+            >
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="expired">Expired</option>
+              <option value="pending">Pending</option>
+            </select>
+            
+            {/* Date From Filter */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-left min-w-[140px]">
+                  {filters.dateFrom ? format(new Date(filters.dateFrom), 'yyyy-MM-dd') : 'From Date'}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="p-0">
+                <Calendar
+                  mode="single"
+                  selected={filters.dateFrom ? new Date(filters.dateFrom) : undefined}
+                  onSelect={(d) => d && setFilters({ ...filters, dateFrom: format(d, 'yyyy-MM-dd') })}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+            
+            {/* Date To Filter */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-left min-w-[140px]">
+                  {filters.dateTo ? format(new Date(filters.dateTo), 'yyyy-MM-dd') : 'To Date'}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="p-0">
+                <Calendar
+                  mode="single"
+                  selected={filters.dateTo ? new Date(filters.dateTo) : undefined}
+                  onSelect={(d) => d && setFilters({ ...filters, dateTo: format(d, 'yyyy-MM-dd') })}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+            
+            {/* Fee Type Filter */}
+            <select
+              value={filters.feeType}
+              onChange={(e) => setFilters({ ...filters, feeType: e.target.value })}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+            >
+              <option value="all">All Fees</option>
+              <option value="monthly">Monthly</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="yearly">Yearly</option>
+            </select>
+            
+            {/* Clear Filters Button */}
+            <button
+              onClick={() => setFilters({ status: 'all', dateFrom: '', dateTo: '', feeType: 'all' })}
+              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200"
+            >
+              Clear Filters
+            </button>
+          </div>
         </div>
       </div>
 
@@ -452,7 +565,7 @@ export default function MembersPage() {
                   <Calendar
                     mode="single"
                     selected={memberForm.joinDate ? new Date(memberForm.joinDate) : undefined}
-                    onSelect={(d) => d && setMemberForm({ ...memberForm, joinDate: d.toISOString().split('T')[0] })}
+                    onSelect={(d) => d && setMemberForm({ ...memberForm, joinDate: format(d, 'yyyy-MM-dd') })}
                     initialFocus
                   />
                 </PopoverContent>
